@@ -6,6 +6,8 @@ import os.path
 from googleapiclient.errors import HttpError
 from googleapiclient.http import MediaIoBaseDownload
 
+import service
+
 
 class GoogleDriveDownloader:
     mime_google_type_to_file_application = {
@@ -86,19 +88,20 @@ class GoogleDriveDownloader:
         mimeType = file_info['mimeType']
         return mimeType == 'application/vnd.google-apps.folder'
 
-    def save(self, file_id, path='downloads'):
+    def save(self, file_id, path=None):
         print(f"Началась загрузка файла с id = {file_id}")
         file_info = self.service.files().get(fileId=file_id).execute()
 
         if self.is_folder(file_info):
             self.download_folder(file_info)
-            return
+            return path
 
         data = self.download_file_data(file_info)
         file_info = self.service.files().get(fileId=file_id).execute()
         file = data
 
-        self.save_file_in_directory(file, file_info, path)
+        return self.save_file_in_directory(file, file_info, path)
+
 
     def save_file_in_directory(self, file, file_info, path):
         file_id = file_info["id"]
@@ -107,7 +110,16 @@ class GoogleDriveDownloader:
         file_extension = ""
         if self.mime_google_type_to_file_application.__contains__(mimeType):
             file_extension = self.mime_google_type_to_file_application[mimeType]
-        file_path = f"{path}/{file_name}{file_extension}"
+
+        path_to_dir = service.get_downloads_dir() if path is None else path
+
+        if not os.path.exists(path_to_dir):
+            os.mkdir(path_to_dir)
+
+        file_path = os.path.join(path_to_dir, f"{file_name}{file_extension}")
         with open(file_path, 'wb+') as f:
             f.write(file)
+
         print(f"Файл с id = {file_id} загружен в {file_path}")
+        return file_path
+
