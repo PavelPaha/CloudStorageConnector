@@ -1,3 +1,4 @@
+import json
 import os.path
 
 from google.auth.transport.requests import Request
@@ -9,11 +10,17 @@ SCOPES = ['https://www.googleapis.com/auth/drive.readonly',
           'https://www.googleapis.com/auth/drive.file',
           'https://www.googleapis.com/auth/drive']
 
+
 def get_proj_dir():
-    return r"C:\Users\MagicBook\Documents\GitHub\CloudStorageConnector"
+    return r"C:/Users/MagicBook/Documents/GitHub/CloudStorageConnector"
+
 
 def get_downloads_dir():
-    return r"C:\Users\MagicBook\Documents\GitHub\CloudStorageConnector\Downloads"
+    return r"C:/Users/MagicBook/Documents/GitHub/CloudStorageConnector/Downloads"
+
+
+def get_yandex_drive_access_token():
+    return json.load(open(f"{get_proj_dir()}/auth_token.json"))["token"]
 
 
 def configure_service():
