@@ -26,18 +26,27 @@ class YandexDriveTests(unittest.TestCase):
 
         self.assertEqual(os.path.exists(path), True)
 
-    def upload(self, path):
-        path = f'{service.get_proj_dir()}/{path}'
+    def upload(self, path, path_on_ya_drive):
         access_token = service.get_yandex_drive_access_token()
         downloader = YandexDriveDownloader(access_token)
+        if not os.path.exists(path):
+            path = f'{service.get_proj_dir()}/{path}'
         try:
-            downloader.upload_file(path)
+            if os.path.isfile(path):
+                downloader.upload_file(path, path_on_ya_drive)
+            else:
+                downloader.upload_folder(path, path_on_ya_drive)
         except Exception as e:
             self.fail(f"Ошибка: {e}")
 
-    def test_downloading(self):
+    def test_file_downloading(self):
         self.download("me.jpg")
-        self.download('kek')
 
-    def test_uploading(self):
-        self.upload('1.jpeg')
+    def test_dir_downloading(self):
+        self.download("testDirectory")
+
+    def test_dir_uploading(self):
+        self.upload('testDirectory/audio', "audio")
+
+    def test_file_uploading(self):
+        self.upload(f'C:/Users/MagicBook/Documents/GitHub/CloudStorageConnector/testDirectory/баран', "баран")

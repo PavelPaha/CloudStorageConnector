@@ -20,14 +20,17 @@ def get_downloads_dir():
 
 
 def get_yandex_drive_access_token():
-    return json.load(open(f"{get_proj_dir()}/auth_token.json"))["token"]
+    with open(f"{get_proj_dir()}/secrets/auth_token.json") as token:
+        return json.load(token)["token"]
+
+
 
 
 def configure_service():
     creds = None
     proj_dir = get_proj_dir()
-    token_name = os.path.join(proj_dir, 'token.json')
-    creds_name = os.path.join(proj_dir, 'credentials.json')
+    token_name = os.path.join(proj_dir, 'secrets/token.json')
+    creds_name = os.path.join(proj_dir, 'secrets/credentials.json')
     if os.path.exists(token_name):
         creds = Credentials.from_authorized_user_file(token_name, SCOPES)
     if not creds or not creds.valid:

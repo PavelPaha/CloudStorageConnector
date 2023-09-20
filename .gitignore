@@ -1,5 +1,5 @@
 /downloads/
-/token.json
-/credentials.json
+/secrets/token.json
+/secrets/credentials.json
 /testDirectory/
-/auth_token.json
+/secrets/auth_token.json
