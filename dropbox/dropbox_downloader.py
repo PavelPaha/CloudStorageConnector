@@ -1,4 +1,5 @@
 import json
+import os
 
 import requests
 
@@ -51,9 +52,9 @@ class DropboxDownloader:
         }
         try:
             response = requests.post(self.upload_file_url,
-                                     headers=headers, data=file_path)
+                                     headers=headers, data=file_content)
             # TODO: пофиксить Dropbox-API-Arg в header'ах
-            return response
+            return
         except Exception as e:
             raise Exception(f"Произошла ошибка загрузки файла на Dropbox (upload_path = {upload_path}): {e}")
 
@@ -75,3 +76,13 @@ class DropboxDownloader:
             return f"{save_path}/{file_name}"
         except Exception as e:
             raise Exception(f"Произошла ошибка загрузки файла на Dropbox (upload_path = {download_path}): {e}")
+
+    def upload_folder_to_drive(self, folder_path, upload_path):
+        for file_name in os.listdir(folder_path):
+            current_path = f'{folder_path}/{file_name}'
+            if os.path.isfile(current_path):
+                self.upload_file(f'{upload_path}/{file_name}', current_path)
+            else:
+                self.upload_folder_to_drive(current_path, f'{upload_path}/{file_name}')
+
+        print(f"Папка успешно загружена на диск")
