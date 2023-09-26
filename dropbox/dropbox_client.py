@@ -2,16 +2,17 @@ import json
 import os
 
 import requests
-
+from client import Client
 import service
 
 
-class DropboxDownloader:
-    URL = 'https://api.dropboxapi.com/2/auth/token/revoke'
+class DropboxClient(Client):
+    main_url = 'https://api.dropboxapi.com/2/auth/token/revoke'
 
     create_folder_url = 'https://api.dropboxapi.com/2/files/create_folder_v2'
     upload_file_url = 'https://content.dropboxapi.com/2/files/upload'
     download_file_url = 'https://content.dropboxapi.com/2/files/download'
+    list_folders_url = 'https://api.dropboxapi.com/2/sharing/list_folders'
 
     def __init__(self, access_token):
         self.access_token = access_token
@@ -20,25 +21,12 @@ class DropboxDownloader:
             "Content-Type": "application/json"
         }
 
-    def create_folder(self, path, autorename=False):
-        data = {
-            "autorename": autorename,
-            "path": path
-        }
-        json_data = json.dumps(data)
-        try:
-            response = requests.post(self.create_folder_url,
-                                     headers=self.default_headers, data=json_data).json()
-            return response
-        except Exception as e:
-            raise Exception(f"Произошла ошибка создания папки (path = {path}): {e}")
-
-    def upload_file(self, upload_path, file_path, author_name=False):
+    def upload_file(self, file_path, upload_path='/'):
         with open(file_path, "rb") as file:
             file_content = file.read()
 
         api_args = {
-            "autorename": author_name,
+            "autorename": False,
             "path": upload_path,
             "mode": "add",
             "mute": False,
@@ -58,9 +46,9 @@ class DropboxDownloader:
         except Exception as e:
             raise Exception(f"Произошла ошибка загрузки файла на Dropbox (upload_path = {upload_path}): {e}")
 
-    def download_file(self, download_path, file_name, save_path=service.get_downloads_dir()):
+    def download_file(self, save_path, path=service.get_downloads_dir()):
         api_args = {
-            "path": download_path,
+            "path": save_path,
         }
 
         headers = {
@@ -72,11 +60,13 @@ class DropboxDownloader:
             response = requests.post(self.download_file_url,
                                      headers=headers)
             response.raise_for_status()
-            with open(f"{save_path}/{file_name}", 'wb') as file:
+            path = f"{path}/{os.path.basename(save_path)}"
+
+            with open(path, 'wb') as file:
                 file.write(response.content)
-            return f"{save_path}/{file_name}"
+            return path
         except Exception as e:
-            raise Exception(f"Произошла ошибка загрузки файла на Dropbox (upload_path = {download_path}): {e}")
+            raise Exception(f"Произошла ошибка загрузки файла на Dropbox (upload_path = {save_path}): {e}")
 
     def download_folder(self, folder_path, download_path=None):
         if download_path is None:
@@ -98,12 +88,50 @@ class DropboxDownloader:
                 if chunk:
                     file.write(chunk)
 
-    def upload_folder_to_drive(self, folder_path, upload_path):
+    def create_folder(self, folder_path):
+        data = {
+            "autorename": False,
+            "path": folder_path
+        }
+        json_data = json.dumps(data)
+        try:
+            response = requests.post(self.create_folder_url,
+                                     headers=self.default_headers, data=json_data).json()
+            return response
+        except Exception as e:
+            raise Exception(f"Произошла ошибка создания папки (path = {folder_path}): {e}")
+
+    def upload_folder(self, folder_path, destination_path):
         for file_name in os.listdir(folder_path):
             current_path = f'{folder_path}/{file_name}'
             if os.path.isfile(current_path):
-                self.upload_file(f'{upload_path}/{file_name}', current_path)
+                self.upload_file(current_path, f'{destination_path}/{file_name}')
             else:
-                self.upload_folder_to_drive(current_path, f'{upload_path}/{file_name}')
+                self.upload_folder(current_path, f'{destination_path}/{file_name}')
 
         print(f"Папка успешно загружена на диск")
+
+    def get_list_files_and_folders(self, path=""):
+        url = "https://api.dropboxapi.com/2/files/list_folder"
+        headers = {
+            "Authorization": f"Bearer {self.access_token}",
+            "Content-Type": "application/json"
+        }
+
+        data = {
+            "path": path,
+            "recursive": False,
+            "include_media_info": False,
+            "include_deleted": False,
+            "include_has_explicit_shared_members": False,
+            "include_mounted_folders": True,
+            "include_non_downloadable_files": True
+        }
+
+        response = requests.post(url, headers=headers, json=data)
+        response.raise_for_status()
+
+        result = response.json()
+        entries = result["entries"]
+
+        return entries

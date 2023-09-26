@@ -1,5 +1,6 @@
 import json
 import os.path
+import shutil
 
 from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
@@ -10,8 +11,14 @@ SCOPES = ['https://www.googleapis.com/auth/drive.readonly',
           'https://www.googleapis.com/auth/drive.file',
           'https://www.googleapis.com/auth/drive']
 
+def clear_downloads():
+    downloads_dir = get_downloads_dir()
+    if os.path.exists(downloads_dir):
+        shutil.rmtree(downloads_dir)
 
-def tryaction(func):
+def take_action(func):
+    clear_downloads()
+    os.mkdir(get_downloads_dir())
     def wrapper(*args):
         try:
             func(*args)

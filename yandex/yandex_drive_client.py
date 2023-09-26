@@ -1,9 +1,10 @@
 import os.path
 import requests
 import service
+from client import Client
 
 
-class YandexDriveDownloader:
+class YandexDriveClient(Client):
     def __init__(self, token):
         self.URL = 'https://cloud-api.yandex.net/v1/disk/resources'
         self.access_token = token
@@ -11,15 +12,15 @@ class YandexDriveDownloader:
                                 'Accept': 'application/json',
                                 'Authorization': f'OAuth {self.access_token}'}
 
-    def upload_file(self, file_path, savefile=None, replace=True):
+    def upload_file(self, file_path, savefile=None):
         if savefile is None:
             savefile = os.path.basename(file_path)
         """Загрузка файла.
         savefile: Путь к файлу на Диске
-        resource_path: Путь к загружаемому файлу
+        folder_path: Путь к загружаемому файлу
         replace: true or false Замена файла на Диске"""
 
-        res = requests.get(f'{self.URL}/upload?path={savefile}&overwrite={replace}',
+        res = requests.get(f'{self.URL}/upload?folder_path={savefile}&overwrite=True',
                            headers=self.default_headers).json()
 
         with open(file_path, 'rb') as f:
@@ -28,14 +29,13 @@ class YandexDriveDownloader:
             except Exception as e:
                 print(res, e)
 
-    def download_file(self, resource_path, path=service.get_downloads_dir()):
-        res = requests.get(f'{self.URL}/download?path={resource_path}', headers=self.default_headers).json()
-
+    def download_file(self, save_path, path=service.get_downloads_dir()):
         get_name_request = requests.get(
-            f'https://cloud-api.yandex.net/v1/disk/resources?path={resource_path}&fields=name,type,_embedded',
+            f'https://cloud-api.yandex.net/v1/disk/resources?path={save_path}&fields=name,type,_embedded',
             headers=self.default_headers).json()
 
         path_to_save = f'{path}/{get_name_request["name"]}'
+        print(path_to_save)
         resource_type = get_name_request["type"]
         if resource_type == 'dir':
             if not os.path.exists(path_to_save):
@@ -46,10 +46,24 @@ class YandexDriveDownloader:
             for item in items:
                 self.download_file(item['path'], path_to_save)
         else:
-            response = requests.get(res['href'], headers=self.default_headers)
+            response = requests.get(f'{self.URL}/download?path={save_path}', headers=self.default_headers)
+            response.raise_for_status()
+            response_json = response.json()
+
+            response_json = requests.get(response_json['href'], headers=self.default_headers)
             with open(path_to_save, 'wb+') as f:
-                f.write(response.content)
+                f.write(response_json.content)
         return path
+
+    def download_folder(self, folder_path, download_path=None):
+        self.download_file(folder_path, download_path)
+
+    def create_folder(self, folder_path):
+        response = requests.put(f'{self.URL}?folder_path={folder_path}', headers=self.default_headers).json()
+        if response.__contains__('error'):
+            print('Warning', response['description'])
+            return
+        requests.put(response['href'])
 
     def upload_folder(self, folder_path, destination_path=None):
         items = os.listdir(folder_path)
@@ -63,9 +77,20 @@ class YandexDriveDownloader:
             elif os.path.isdir(item_path):
                 self.upload_folder(item_path, new_destination)
 
-    def create_folder(self, folder_path):
-        response = requests.put(f'{self.URL}?path={folder_path}', headers=self.default_headers).json()
-        if response.__contains__('error'):
-            print('Warning', response['description'])
-            return
-        requests.put(response['href'])
+    def get_list_files_and_folders(self, path='/'):
+        url = "https://cloud-api.yandex.net/v1/disk/resources"
+        headers = {
+            "Authorization": f"OAuth {self.access_token}"
+        }
+
+        params = {
+            "path": path
+        }
+
+        response = requests.get(url, headers=headers, params=params)
+        response.raise_for_status()
+
+        result = response.json()
+        entries = result["_embedded"]["items"]
+
+        return entries
