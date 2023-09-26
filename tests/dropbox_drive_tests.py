@@ -11,20 +11,15 @@ def clear_downloads():
 
 class DropboxDriveTests(unittest.TestCase):
 
+    @service.tryaction
     def download(self, download_path, file_name):
         downloader = DropboxDownloader(service.get_dropbox_access_token())
-        try:
-            path = downloader.download_file(download_path, file_name=file_name)
-        except Exception as e:
-            self.fail(f"Ошибка: {e}")
+        path = downloader.download_file(download_path, file_name=file_name)
         self.assertEqual(os.path.exists(path), True)
 
     def upload_file(self, file_path, upload_path):
         downloader = DropboxDownloader(service.get_dropbox_access_token())
-        try:
-            downloader.upload_file(upload_path, f'{service.get_proj_dir()}/{file_path}')
-        except Exception as e:
-            self.fail(f"Ошибка: {e}")
+        downloader.upload_file(upload_path, f'{service.get_proj_dir()}/{file_path}')
 
     def upload_folder(self, file_path, upload_path):
         downloader = DropboxDownloader(service.get_dropbox_access_token())

@@ -14,30 +14,25 @@ def clear_downloads():
 
 class YandexDriveTests(unittest.TestCase):
 
+    @service.tryaction
     def download(self, resource_path):
         clear_downloads()
         os.mkdir(service.get_downloads_dir())
         access_token = service.get_yandex_drive_access_token()
         downloader = YandexDriveDownloader(access_token)
-        try:
-            path = downloader.download_file(resource_path)
-        except Exception as e:
-            self.fail(f"Ошибка: {e}")
-
+        path = downloader.download_file(resource_path)
         self.assertEqual(os.path.exists(path), True)
 
+    @service.tryaction
     def upload(self, path, path_on_ya_drive):
         access_token = service.get_yandex_drive_access_token()
         downloader = YandexDriveDownloader(access_token)
         if not os.path.exists(path):
             path = f'{service.get_proj_dir()}/{path}'
-        try:
-            if os.path.isfile(path):
-                downloader.upload_file(path, path_on_ya_drive)
-            else:
-                downloader.upload_folder(path, path_on_ya_drive)
-        except Exception as e:
-            self.fail(f"Ошибка: {e}")
+        if os.path.isfile(path):
+            downloader.upload_file(path, path_on_ya_drive)
+        else:
+            downloader.upload_folder(path, path_on_ya_drive)
 
     def test_file_downloading(self):
         self.download("me.jpg")
