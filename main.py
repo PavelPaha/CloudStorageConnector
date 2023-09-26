@@ -11,11 +11,10 @@ if __name__ == '__main__':
     # for folder in folder_list:
     #     print('folder title: %s, id: %s' % (folder['title'], folder['id']))
 
-    # downloader = GoogleDriveDownloader(service)
-    # a = downloader.get_file_names(500)
-    # for i in a:
-    #     print(i)
-
+    downloader = GoogleDriveDownloader(service)
+    a = downloader.get_file_names(500)
+    for i in a:
+        print(i)
     # downloader.save('1y-qGLUW9gD19u7xQqrWzAxUMazcYS1yo')
     # # #
 
