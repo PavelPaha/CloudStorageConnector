@@ -53,7 +53,7 @@ class DropboxDownloader:
         try:
             response = requests.post(self.upload_file_url,
                                      headers=headers, data=file_content)
-            # TODO: пофиксить Dropbox-API-Arg в header'ах
+            response.raise_for_status()
             return
         except Exception as e:
             raise Exception(f"Произошла ошибка загрузки файла на Dropbox (upload_path = {upload_path}): {e}")
@@ -67,15 +67,36 @@ class DropboxDownloader:
             "Authorization": f"Bearer {self.access_token}",
             "Dropbox-API-Arg": json.dumps(api_args)
         }
+
         try:
             response = requests.post(self.download_file_url,
                                      headers=headers)
-            # TODO: пофиксить Dropbox-API-Arg в header'ах
+            response.raise_for_status()
             with open(f"{save_path}/{file_name}", 'wb') as file:
                 file.write(response.content)
             return f"{save_path}/{file_name}"
         except Exception as e:
             raise Exception(f"Произошла ошибка загрузки файла на Dropbox (upload_path = {download_path}): {e}")
+
+    def download_folder(self, folder_path, download_path=None):
+        if download_path is None:
+            download_path = f'{service.get_downloads_dir()}/{os.path.basename(folder_path)}.zip'
+        else:
+            download_path = f'{service.get_downloads_dir()}/{download_path}'
+
+        url = "https://content.dropboxapi.com/2/files/download_zip"
+        headers = {
+            "Authorization": f"Bearer {self.access_token}",
+            "Dropbox-API-Arg": f'{{"path": "{folder_path}"}}'
+        }
+
+        response = requests.post(url, headers=headers, stream=True)
+        response.raise_for_status()
+
+        with open(download_path, "wb") as file:
+            for chunk in response.iter_content(chunk_size=8192):
+                if chunk:
+                    file.write(chunk)
 
     def upload_folder_to_drive(self, folder_path, upload_path):
         for file_name in os.listdir(folder_path):
