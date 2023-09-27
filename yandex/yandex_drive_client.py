@@ -1,5 +1,7 @@
 import os.path
+
 import requests
+
 import service
 from client import Client
 
@@ -55,8 +57,8 @@ class YandexDriveClient(Client):
                 f.write(response_json.content)
         return path
 
-    def download_folder(self, folder_path, download_path=None):
-        self.download_file(folder_path, download_path)
+    def download_folder(self, folder_path, download_path=service.get_downloads_dir()):
+        return self.download_file(folder_path, download_path)
 
     def create_folder(self, folder_path):
         response = requests.put(f'{self.URL}?folder_path={folder_path}', headers=self.default_headers).json()
@@ -93,4 +95,7 @@ class YandexDriveClient(Client):
         result = response.json()
         entries = result["_embedded"]["items"]
 
-        return entries
+        items = []
+        for entry in entries:
+            items += [f'Name: {entry["name"]}, path: {entry["path"].replace("disk:/", "")}']
+        return '\n'.join(items)

@@ -1,8 +1,9 @@
-import unittest
-import service
 import os
-from dropbox.dropbox_client import DropboxClient
 import shutil
+import unittest
+
+import service
+from dropbox.dropbox_client import DropboxClient
 
 
 def clear_downloads():
@@ -17,7 +18,8 @@ class DropboxDriveTests(unittest.TestCase):
         path = client.download_file(download_path)
         self.assertEqual(os.path.exists(path), True)
 
-    def upload_file(self, file_path, upload_path):
+    @staticmethod
+    def upload_file(file_path, upload_path):
         client = DropboxClient(service.get_dropbox_access_token())
         client.upload_file(f'{service.get_proj_dir()}/{file_path}', upload_path)
 
@@ -29,10 +31,10 @@ class DropboxDriveTests(unittest.TestCase):
             self.fail(f"Ошибка: {e}")
 
     def test_images_downloading(self):
-        self.download('/images/i.jpg')
+        self.download('images/i.jpg')
 
     def test_pdf_downloading(self):
-        self.download('/1.5.pdf')
+        self.download('1.5.pdf')
 
     def test_image_uploading(self):
         self.upload_file('testDirectory/images/i.jpg', '/i.jpg')
@@ -40,14 +42,16 @@ class DropboxDriveTests(unittest.TestCase):
     def test_pdf_uploading(self):
         self.upload_file('testDirectory/pdf/someDoc.pdf', '/someDoc.pdf')
 
-    def test_folder_downloading(self):
+    @staticmethod
+    def test_folder_downloading():
         client = DropboxClient(service.get_dropbox_access_token())
-        client.download_folder('/images')
+        client.download_folder('images')
 
     def test_folder_uploading(self):
         self.upload_folder('testDirectory', '/b')
 
-    def test_get_list_folder(self):
+    @staticmethod
+    def test_get_list_folder():
         client = DropboxClient(service.get_dropbox_access_token())
         list = client.get_list_files_and_folders()
         print(list)

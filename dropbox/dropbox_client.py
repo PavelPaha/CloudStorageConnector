@@ -2,8 +2,9 @@ import json
 import os
 
 import requests
-from client import Client
+
 import service
+from client import Client
 
 
 class DropboxClient(Client):
@@ -47,6 +48,8 @@ class DropboxClient(Client):
             raise Exception(f"Произошла ошибка загрузки файла на Dropbox (upload_path = {upload_path}): {e}")
 
     def download_file(self, save_path, path=service.get_downloads_dir()):
+        if not save_path.startswith('/'):
+            save_path = f'/{save_path}'
         api_args = {
             "path": save_path,
         }
@@ -69,6 +72,8 @@ class DropboxClient(Client):
             raise Exception(f"Произошла ошибка загрузки файла на Dropbox (upload_path = {save_path}): {e}")
 
     def download_folder(self, folder_path, download_path=None):
+        if not folder_path.startswith('/'):
+            folder_path = f'/{folder_path}'
         if download_path is None:
             download_path = f'{service.get_downloads_dir()}/{os.path.basename(folder_path)}.zip'
         else:
@@ -87,6 +92,7 @@ class DropboxClient(Client):
             for chunk in response.iter_content(chunk_size=8192):
                 if chunk:
                     file.write(chunk)
+        return download_path
 
     def create_folder(self, folder_path):
         data = {
@@ -102,6 +108,9 @@ class DropboxClient(Client):
             raise Exception(f"Произошла ошибка создания папки (path = {folder_path}): {e}")
 
     def upload_folder(self, folder_path, destination_path):
+        if not destination_path.startswith('/'):
+            destination_path = f'/{destination_path}'
+
         for file_name in os.listdir(folder_path):
             current_path = f'{folder_path}/{file_name}'
             if os.path.isfile(current_path):
@@ -109,7 +118,7 @@ class DropboxClient(Client):
             else:
                 self.upload_folder(current_path, f'{destination_path}/{file_name}')
 
-        print(f"Папка успешно загружена на диск")
+        print(f"Папка {folder_path} успешно загружена на диск (путь на диске - {destination_path})")
 
     def get_list_files_and_folders(self, path=""):
         url = "https://api.dropboxapi.com/2/files/list_folder"
@@ -134,4 +143,7 @@ class DropboxClient(Client):
         result = response.json()
         entries = result["entries"]
 
-        return entries
+        items = []
+        for entry in entries:
+            items += [f'Name: {entry["name"]}, path: {entry["path_lower"]}']
+        return '\n'.join(items)
