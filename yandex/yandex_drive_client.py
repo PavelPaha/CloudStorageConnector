@@ -1,7 +1,5 @@
 import os.path
-
 import requests
-
 import service
 from client import Client
 
@@ -17,12 +15,8 @@ class YandexDriveClient(Client):
     def upload_file(self, file_path, savefile=None):
         if savefile is None:
             savefile = os.path.basename(file_path)
-        """Загрузка файла.
-        savefile: Путь к файлу на Диске
-        folder_path: Путь к загружаемому файлу
-        replace: true or false Замена файла на Диске"""
 
-        res = requests.get(f'{self.URL}/upload?folder_path={savefile}&overwrite=True',
+        res = requests.get(f'{self.URL}/upload?path={savefile}&overwrite=True',
                            headers=self.default_headers).json()
 
         with open(file_path, 'rb') as f:
@@ -61,11 +55,16 @@ class YandexDriveClient(Client):
         return self.download_file(folder_path, download_path)
 
     def create_folder(self, folder_path):
-        response = requests.put(f'{self.URL}?folder_path={folder_path}', headers=self.default_headers).json()
-        if response.__contains__('error'):
-            print('Warning', response['description'])
-            return
-        requests.put(response['href'])
+        try:
+            response = requests.put(f'{self.URL}?path={folder_path}', headers=self.default_headers)
+            # response.raise_for_status()
+            response_json = response.json()
+            if 'error' in response:
+                print('Warning', response_json['description'])
+                return
+            requests.put(response_json['href'])
+        except:
+            print(f"Папка {folder_path} уже создана")
 
     def upload_folder(self, folder_path, destination_path=None):
         items = os.listdir(folder_path)
@@ -73,7 +72,7 @@ class YandexDriveClient(Client):
             self.create_folder(destination_path)
         for item in items:
             new_destination = item if destination_path is None else f"{destination_path}/{item}"
-            item_path = os.path.join(folder_path, item)
+            item_path = f'{folder_path}/{item}'
             if os.path.isfile(item_path):
                 self.upload_file(item_path, new_destination)
             elif os.path.isdir(item_path):

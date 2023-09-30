@@ -31,10 +31,10 @@ class DropboxDriveTests(unittest.TestCase):
             self.fail(f"Ошибка: {e}")
 
     def test_images_downloading(self):
-        self.download('images/i.jpg')
+        self.download('/images/i.jpg')
 
     def test_pdf_downloading(self):
-        self.download('1.5.pdf')
+        self.download('/1.5.pdf')
 
     def test_image_uploading(self):
         self.upload_file('testDirectory/images/i.jpg', '/i.jpg')
@@ -45,7 +45,7 @@ class DropboxDriveTests(unittest.TestCase):
     @staticmethod
     def test_folder_downloading():
         client = DropboxClient(service.get_dropbox_access_token())
-        client.download_folder('images')
+        client.download_folder('/images')
 
     def test_folder_uploading(self):
         self.upload_folder('testDirectory', '/b')

@@ -1,6 +1,5 @@
 import os
 import unittest
-
 import service
 from yandex.yandex_drive_client import YandexDriveClient
 
@@ -12,6 +11,7 @@ class YandexDriveTests(unittest.TestCase):
         access_token = service.get_yandex_drive_access_token()
         client = YandexDriveClient(access_token)
         path = client.download_file(resource_path)
+        print(path)
         self.assertEqual(os.path.exists(path), True)
 
     @service.take_action

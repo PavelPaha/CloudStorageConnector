@@ -48,8 +48,8 @@ class DropboxClient(Client):
             raise Exception(f"Произошла ошибка загрузки файла на Dropbox (upload_path = {upload_path}): {e}")
 
     def download_file(self, save_path, path=service.get_downloads_dir()):
-        if not save_path.startswith('/'):
-            save_path = f'/{save_path}'
+        # if not save_path.startswith('/'):
+        #     save_path = f'/{save_path}'
         api_args = {
             "path": save_path,
         }
@@ -72,8 +72,8 @@ class DropboxClient(Client):
             raise Exception(f"Произошла ошибка загрузки файла на Dropbox (upload_path = {save_path}): {e}")
 
     def download_folder(self, folder_path, download_path=None):
-        if not folder_path.startswith('/'):
-            folder_path = f'/{folder_path}'
+        # if not folder_path.startswith('/'):
+        #     folder_path = f'/{folder_path}'
         if download_path is None:
             download_path = f'{service.get_downloads_dir()}/{os.path.basename(folder_path)}.zip'
         else:
@@ -108,8 +108,8 @@ class DropboxClient(Client):
             raise Exception(f"Произошла ошибка создания папки (path = {folder_path}): {e}")
 
     def upload_folder(self, folder_path, destination_path):
-        if not destination_path.startswith('/'):
-            destination_path = f'/{destination_path}'
+        # if not destination_path.startswith('/'):
+        #     destination_path = f'/{destination_path}'
 
         for file_name in os.listdir(folder_path):
             current_path = f'{folder_path}/{file_name}'
