@@ -1,7 +1,6 @@
 import os
 import shutil
 import unittest
-
 import service
 from dropbox.dropbox_client import DropboxClient
 

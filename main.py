@@ -1,93 +1,65 @@
-import os.path
-import subprocess
+import argparse
+import json
 
 import service
-from client import Client
-from dropbox.dropbox_client import DropboxClient
 from yandex.yandex_drive_client import YandexDriveClient
-
-print("Выберите хранилище: Yandex(Y) или DropBox(D)")
-storage_type = input()
-
-storage = Client()
-if storage_type == 'Y':
-    storage = YandexDriveClient(service.get_yandex_drive_access_token())
-elif storage_type == 'D':
-    storage = DropboxClient(service.get_dropbox_access_token())
+from dropbox.dropbox_client import DropboxClient
 
 
-def handle_command(client: Client, command):
-    if command == 1:
-        print(client.get_list_files_and_folders())
-    elif command == 2:
-        while True:
-            print("Введите путь на выбранном хранилище")
-            folder_path = input()
-            try:
-                directory_path = storage.download_folder(folder_path)
-                print(fr"Скачано в {directory_path}")
-                normalized_path = os.path.normpath(directory_path)
-                subprocess.Popen(f'explorer "{normalized_path}"')
-                break
-            except Exception as e:
-                print(f"Ошибка {e}")
-    elif command == 3:
-        while True:
-            print("Введите путь на выбранном хранилище")
-            folder_path = input()
-            try:
-                directory_path = storage.download_file(folder_path)
-                print(fr"Скачано в {directory_path}")
-                normalized_path = os.path.normpath(directory_path)
-                subprocess.Popen(f'explorer "{normalized_path}"')
-                break
-            except Exception as e:
-                print(f"Ошибка {e}")
-    elif command == 4:
-        try:
-            while True:
-                print("Введите путь папки, которую нужно загрузить в хранилище")
-                folder_path = input()
-                if os.path.exists(folder_path) and os.path.isdir(folder_path):
-                    break
-                print("Неверно указан путь к искомой папке")
+def save_tokens(yandex_disk_token, dropbox_token):
+    tokens = {
+        "yandex_disk_token": yandex_disk_token,
+        "dropbox_token": dropbox_token
+    }
 
-            print("Введите путь на диске")
-            destination_path = input()
-            client.upload_folder(folder_path, destination_path)
-        except Exception as e:
-            print(f"Ошибка {e}")
-    elif command == 5:
-        try:
-            while True:
-                print("Введите путь к файлу, который нужно загрузить в хранилище")
-                file_path = input()
-                if os.path.exists(file_path) and os.path.isfile(file_path):
-                    break
-                print("Неверно указан путь к искомому файлу")
-
-            print("Введите путь на диске")
-            destination_path = input()
-            client.upload_file(file_path, destination_path)
-        except Exception as e:
-            print(f"Ошибка {e}")
-    elif command == -1:
-        exit(0)
-    else:
-        print("Не распознана команда!")
+    with open("secrets/tokens.json", "w") as file:
+        json.dump(tokens, file)
 
 
-while True:
-    print(
-        """
-    
-Выберите операцию:
-    1. Посмотреть список файлов и папок
-    2. Скачать папку
-    3. Скачать файл
-    4. Загрузить папку
-    5. Загрузить файл
-    """)
+parser = argparse.ArgumentParser(description="Yandex.Disk and Dropbox CLI")
 
-    command = int(input())
-    handle_command(storage, command)
+parser.add_argument("--save-tokens", action="store_true", help="Save tokens for Yandex.Disk and Dropbox.")
+parser.add_argument("--yandex-disk-token", type=str, help="Access token for Yandex.Disk.")
+parser.add_argument("--dropbox-token", type=str, help="Access token for Dropbox.")
+parser.add_argument("--storage", type=str, default="yandex-disk", help="Choose storage: yandex-disk or dropbox.")
+parser.add_argument("--token", type=str, help="Access token for the storage.")
+
+parser.add_argument("--upload-file", type=str, help="Upload file to the storage.")
+parser.add_argument("--download-file", type=str, help="Download file from the storage.")
+parser.add_argument("--create-folder", type=str, help="Create folder on the storage.")
+parser.add_argument("--upload-folder", type=str, help="Upload folder to the storage.")
+parser.add_argument("--download-folder", type=str, help="Download folder from the storage.")
+parser.add_argument("--list-files", action="store_true", help="List files and folders on the storage.")
+
+args = parser.parse_args()
+
+if args.storage == "yandex-disk":
+    client = YandexDriveClient(service.get_yandex_drive_access_token() if args.token is None else args.token)
+elif args.storage == "dropbox":
+    client = DropboxClient(service.get_dropbox_access_token() if args.token is None else args.token)
+else:
+    print("Invalid storage selected!")
+    exit(1)
+
+if args.upload_file:
+    client.upload_file(args.upload_file)
+elif args.download_file:
+    client.download_file(args.download_file)
+elif args.create_folder:
+    client.create_folder(args.create_folder)
+elif args.upload_folder:
+    client.upload_folder(args.upload_folder)
+elif args.download_folder:
+    client.download_folder(args.download_folder)
+elif args.list_files:
+    files_and_folders = client.get_list_files_and_folders()
+    print(files_and_folders)
+elif args.save_tokens:
+    if not args.yandex_disk_token or not args.dropbox_token:
+        print("Please provide both Yandex.Disk token and Dropbox token.")
+        exit(1)
+
+    save_tokens(args.yandex_disk_token, args.dropbox_token)
+    print("Tokens saved successfully.")
+else:
+    print("Invalid command!")

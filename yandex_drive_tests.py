@@ -4,7 +4,7 @@ import service
 from yandex.yandex_drive_client import YandexDriveClient
 
 
-class YandexDriveTests(unittest.TestCase):
+class YandexDriveTest(unittest.TestCase):
 
     @service.take_action
     def download(self, resource_path):
@@ -35,7 +35,7 @@ class YandexDriveTests(unittest.TestCase):
         self.upload('testDirectory/audio', "audio")
 
     def test_file_uploading(self):
-        self.upload(f'C:/Users/MagicBook/Documents/GitHub/CloudStorageConnector/testDirectory/баран', "баран")
+        self.upload(f'testDirectory/баран', "баран")
 
     def test_get_all_items(self):
         client = YandexDriveClient(service.get_yandex_drive_access_token())
