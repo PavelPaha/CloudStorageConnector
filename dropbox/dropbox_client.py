@@ -27,6 +27,9 @@ class DropboxClient(Client):
         if service.size_limit_exceeded(file_path):
             file_path = service.archive(file_path)
 
+        self.upload_large_file(file_path)
+        return
+
         with open(file_path, "rb") as file:
             file_content = file.read()
 
@@ -160,3 +163,72 @@ class DropboxClient(Client):
         for entry in entries:
             items += [f'Name: {entry["name"]}, path: {entry["path_lower"]}']
         return '\n'.join(items)
+
+    def upload_large_file(self, file_path):
+        session_start_url = 'https://content.dropboxapi.com/2/files/upload_session/start'
+        session_append_url = 'https://content.dropboxapi.com/2/files/upload_session/append_v2'
+        session_finish_url = 'https://content.dropboxapi.com/2/files/upload_session/finish'
+
+        chunk_size = 1024*1024
+
+        with open(file_path, 'rb') as f:
+            file_size = len(f.read())
+
+        headers = {
+            'Authorization': f'Bearer {self.access_token}',
+            'Content-Type': 'application/octet-stream'
+        }
+
+        # Начало сессии загрузки
+        with open(file_path, 'rb') as f:
+            response = requests.post(session_start_url, headers=headers, data=f.read(chunk_size))
+
+            if response.status_code != 200:
+                print(f"Error starting upload session: {response.json()}")
+                return
+
+            response_json = response.json()
+            session_id = response_json['session_id']
+
+        with open(file_path, 'rb') as f:
+            offset = 0
+            while offset < file_size:
+                chunk_data = f.read(chunk_size)
+                headers['Dropbox-API-Arg'] = json.dumps({
+                    'cursor': {
+                        'session_id': session_id,
+                        'offset': offset
+                    },
+                    'close': False
+                })
+
+                response = requests.post(session_append_url, headers=headers, data=chunk_data)
+
+                if response.status_code != 200:
+                    print(f"Error appending to upload session: {response.content}")
+                    return
+
+                offset += len(chunk_data)
+
+        headers['Dropbox-API-Arg'] =json.dumps({
+            'cursor': {
+                'session_id': session_id,
+                'offset': file_size
+            },
+            'commit': {
+                'path': file_path,
+                'mode': 'add',
+                'autorename': True,
+                'mute': False
+            },
+            'close': True
+        })
+
+        response = requests.post(session_finish_url, headers=headers)
+
+        if response.status_code != 200:
+            print(f"Error finishing upload session: {response.content}")
+            return
+
+        print("File uploaded successfully!")
+
