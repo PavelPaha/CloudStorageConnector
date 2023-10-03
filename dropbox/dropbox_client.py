@@ -1,5 +1,6 @@
 import json
 import os
+import time
 
 import requests
 
@@ -14,6 +15,8 @@ class DropboxClient(Client):
     upload_file_url = 'https://content.dropboxapi.com/2/files/upload'
     download_file_url = 'https://content.dropboxapi.com/2/files/download'
     list_folders_url = 'https://api.dropboxapi.com/2/sharing/list_folders'
+
+    session_data_file = 'upload_session.json'
 
     def __init__(self, access_token):
         self.access_token = access_token
@@ -83,9 +86,9 @@ class DropboxClient(Client):
         # if not folder_path.startswith('/'):
         #     folder_path = f'/{folder_path}'
         if download_path is None:
-            download_path = f'{service.get_downloads_dir()}/{os.path.basename(folder_path)}.zip'
+            download_path = os.path.join(service.get_downloads_dir(), f'{os.path.basename(folder_path)}.zip')
         else:
-            download_path = f'{service.get_downloads_dir()}/{download_path}'
+            download_path = os.path.join(service.get_downloads_dir(), download_path)
 
         url = "https://content.dropboxapi.com/2/files/download_zip"
         headers = {
@@ -169,29 +172,67 @@ class DropboxClient(Client):
             'Content-Type': 'application/octet-stream'
         }
 
-        url = 'https://content.dropboxapi.com/2/files/upload_session/start'
-        r = requests.post(url, headers=headers, data=None)
-        res = r.json()
-        session_id = res['session_id']
+        session_id = None
+        offset = 0
+        try:
+            with open(self.session_data_file, 'r') as f:
+                session_data = json.load(f)
+                session_id = session_data['session_id']
+                offset = session_data['offset']
+        except FileNotFoundError:
+            pass
+
+        if not session_id:
+            url = 'https://content.dropboxapi.com/2/files/upload_session/start'
+            r = self.upload_with_retry(url, headers, None)
+            res = r.json()
+            session_id = res['session_id']
 
         with open(file_path, 'rb') as f:
-            offset = 0
-            while True:
-                data = f.read(1024 * 1024)
-                if not data:
-                    break
+            f.seek(offset)
+            data = f.read(1024 * 1024)
+            while data:
+                print(f'session_id = {session_id}, offset = {offset}')
 
                 url = 'https://content.dropboxapi.com/2/files/upload_session/append_v2'
                 headers['Dropbox-API-Arg'] = '{"cursor": {"session_id": "' + session_id + \
                                              '", "offset": ' + str(offset) + '}, "close": false}'
-                r = requests.post(url, headers=headers, data=data)
-                r.raise_for_status()
+                self.upload_with_retry(url, headers, data)
                 offset += len(data)
+                with open(self.session_data_file, 'w') as restored:
+                    json.dump({'session_id': session_id, 'offset': offset}, restored)
+                data = f.read(1024 * 1024)
 
         commit_path = (upload_path + '/' + os.path.basename(file_path)).replace('//', '/')
         url = 'https://content.dropboxapi.com/2/files/upload_session/finish'
         headers['Dropbox-API-Arg'] = '{"cursor": {"session_id": "' + session_id + \
                                      '", "offset": ' + str(
-            offset) + '}, "commit": {"path": "' + commit_path + '"}}'
+            offset) + '}, "commit": {"path": "' + commit_path + '", "mode": "overwrite"}}'
         r = requests.post(url, headers=headers, data=None)
         r.raise_for_status()
+        os.remove(self.session_data_file)
+
+    def upload_with_retry(self, url, headers, data, max_retries=3, delay=5):
+        for i in range(max_retries):
+            try:
+                r = requests.post(url, headers=headers, data=data)
+                r.raise_for_status()
+                return r
+            except requests.exceptions.RequestException as e:
+                if e.response.status_code == 409:
+                    error_text_in_json = json.loads(e.response.text)
+                    if 'correct_offset' in error_text_in_json['error']:
+                        correct_offset = error_text_in_json['error']['correct_offset']
+
+                        with open(self.session_data_file, 'r') as f:
+                            session_data = json.load(f)
+                            session_id = session_data['session_id']
+
+                        with open(self.session_data_file, 'w') as f:
+                            json.dump({'session_id': session_id, 'offset': correct_offset}, f)
+
+                if i < max_retries - 1:
+                    time.sleep(delay)
+                    continue
+                else:
+                    raise

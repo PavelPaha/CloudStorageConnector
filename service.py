@@ -11,8 +11,7 @@ def clear_downloads():
 
 
 def take_action(func):
-    clear_downloads()
-    os.mkdir(get_downloads_dir())
+    # clear_downloads()
 
     def wrapper(*args):
         try:
@@ -40,17 +39,20 @@ def operation_status(operation_name):
 
 
 def get_dropbox_access_token():
-    with open(f'{get_proj_dir()}/secrets/tokens.json') as file:
+    p = os.path.join(get_proj_dir(), 'secrets', 'tokens.json')
+    with open(p) as file:
         json_data = json.load(file)
         return json_data['dropbox_token']
 
 
 def get_proj_dir():
-    return os.getcwd()
+    absolute_file_path = os.path.realpath(__file__)
+    dir_name = os.path.dirname(absolute_file_path)
+    return dir_name
 
 
 def get_downloads_dir():
-    return fr"{get_proj_dir()}/Downloads"
+    return os.path.join(get_proj_dir(), 'Downloads')
 
 
 def get_yandex_drive_access_token():
