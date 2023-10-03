@@ -26,9 +26,8 @@ class DropboxClient(Client):
     def upload_file(self, file_path, upload_path='/'):
         if service.size_limit_exceeded(file_path):
             file_path = service.archive(file_path)
-
-        self.upload_large_file(file_path)
-        return
+            self.upload_large_file(file_path, upload_path)
+            return
 
         with open(file_path, "rb") as file:
             file_content = file.read()
@@ -164,71 +163,35 @@ class DropboxClient(Client):
             items += [f'Name: {entry["name"]}, path: {entry["path_lower"]}']
         return '\n'.join(items)
 
-    def upload_large_file(self, file_path):
-        session_start_url = 'https://content.dropboxapi.com/2/files/upload_session/start'
-        session_append_url = 'https://content.dropboxapi.com/2/files/upload_session/append_v2'
-        session_finish_url = 'https://content.dropboxapi.com/2/files/upload_session/finish'
-
-        chunk_size = 1024*1024
-
-        with open(file_path, 'rb') as f:
-            file_size = len(f.read())
-
+    def upload_large_file(self, file_path, upload_path):
         headers = {
-            'Authorization': f'Bearer {self.access_token}',
+            'Authorization': 'Bearer ' + self.access_token,
             'Content-Type': 'application/octet-stream'
         }
 
-        # Начало сессии загрузки
-        with open(file_path, 'rb') as f:
-            response = requests.post(session_start_url, headers=headers, data=f.read(chunk_size))
-
-            if response.status_code != 200:
-                print(f"Error starting upload session: {response.json()}")
-                return
-
-            response_json = response.json()
-            session_id = response_json['session_id']
+        url = 'https://content.dropboxapi.com/2/files/upload_session/start'
+        r = requests.post(url, headers=headers, data=None)
+        res = r.json()
+        session_id = res['session_id']
 
         with open(file_path, 'rb') as f:
             offset = 0
-            while offset < file_size:
-                chunk_data = f.read(chunk_size)
-                headers['Dropbox-API-Arg'] = json.dumps({
-                    'cursor': {
-                        'session_id': session_id,
-                        'offset': offset
-                    },
-                    'close': False
-                })
+            while True:
+                data = f.read(1024 * 1024)
+                if not data:
+                    break
 
-                response = requests.post(session_append_url, headers=headers, data=chunk_data)
+                url = 'https://content.dropboxapi.com/2/files/upload_session/append_v2'
+                headers['Dropbox-API-Arg'] = '{"cursor": {"session_id": "' + session_id + \
+                                             '", "offset": ' + str(offset) + '}, "close": false}'
+                r = requests.post(url, headers=headers, data=data)
+                r.raise_for_status()
+                offset += len(data)
 
-                if response.status_code != 200:
-                    print(f"Error appending to upload session: {response.content}")
-                    return
-
-                offset += len(chunk_data)
-
-        headers['Dropbox-API-Arg'] =json.dumps({
-            'cursor': {
-                'session_id': session_id,
-                'offset': file_size
-            },
-            'commit': {
-                'path': file_path,
-                'mode': 'add',
-                'autorename': True,
-                'mute': False
-            },
-            'close': True
-        })
-
-        response = requests.post(session_finish_url, headers=headers)
-
-        if response.status_code != 200:
-            print(f"Error finishing upload session: {response.content}")
-            return
-
-        print("File uploaded successfully!")
-
+        commit_path = (upload_path + '/' + os.path.basename(file_path)).replace('//', '/')
+        url = 'https://content.dropboxapi.com/2/files/upload_session/finish'
+        headers['Dropbox-API-Arg'] = '{"cursor": {"session_id": "' + session_id + \
+                                     '", "offset": ' + str(
+            offset) + '}, "commit": {"path": "' + commit_path + '"}}'
+        r = requests.post(url, headers=headers, data=None)
+        r.raise_for_status()

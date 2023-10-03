@@ -1,6 +1,7 @@
 import os
 import shutil
 import unittest
+
 import service
 from dropbox.dropbox_client import DropboxClient
 
@@ -47,7 +48,7 @@ class DropboxDriveTests(unittest.TestCase):
         client.download_folder('/images')
 
     def test_folder_uploading(self):
-        self.upload_folder('testDirectory', '/b')
+        self.upload_folder('testDirectory', '/')
 
     @staticmethod
     def test_get_list_folder():
