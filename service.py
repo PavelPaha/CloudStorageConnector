@@ -56,7 +56,7 @@ def get_downloads_dir():
 
 
 def get_yandex_drive_access_token():
-    with open(f"{get_proj_dir()}/secrets/tokens.json") as token:
+    with open(os.path.join(get_proj_dir(), 'secrets', 'tokens.json')) as token:
         return json.load(token)["yandex_disk_token"]
 
 

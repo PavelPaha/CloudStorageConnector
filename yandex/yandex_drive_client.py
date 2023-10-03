@@ -1,5 +1,7 @@
 import os.path
+
 import requests
+
 import service
 from client import Client
 
@@ -20,8 +22,7 @@ class YandexDriveClient(Client):
         if service.size_limit_exceeded(file_path):
             file_path = service.archive(file_path)
             extension = os.path.splitext(file_path)[1]
-            savefile+=extension
-
+            savefile += extension
 
         res = requests.get(f'{self.URL}/upload?path={savefile}&overwrite=True',
                            headers=self.default_headers).json()
