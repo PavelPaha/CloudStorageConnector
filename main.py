@@ -1,15 +1,22 @@
 import argparse
 import json
+import os.path
 
 import service
 from yandex.yandex_drive_client import YandexDriveClient
 from dropbox.dropbox_client import DropboxClient
 
+if not os.path.exists('secrets'):
+    os.mkdir('secrets')
+with open(os.path.join('secrets', 'tokens.json'), 'w') as f:
+    f.write('{}')
+    pass
+
 
 def save_tokens(yandex_disk_token, dropbox_token):
     tokens = {
-        "yandex_disk_token": yandex_disk_token,
-        "dropbox_token": dropbox_token
+        "yandex-disk-token": yandex_disk_token,
+        "dropbox-token": dropbox_token
     }
 
     with open("secrets/tokens.json", "w") as file:

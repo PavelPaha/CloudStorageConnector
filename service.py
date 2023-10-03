@@ -38,11 +38,22 @@ def operation_status(operation_name):
     return decorator
 
 
+def get_yandex_drive_access_token():
+    try:
+        with open(os.path.join(get_proj_dir(), 'secrets', 'tokens.json')) as token:
+            return json.load(token)["yandex-disk-token"]
+    except Exception as e:
+        print(f"Не установлен токен, {e}")
+
+
 def get_dropbox_access_token():
-    p = os.path.join(get_proj_dir(), 'secrets', 'tokens.json')
-    with open(p) as file:
-        json_data = json.load(file)
-        return json_data['dropbox_token']
+    try:
+        p = os.path.join(get_proj_dir(), 'secrets', 'tokens.json')
+        with open(p) as file:
+            json_data = json.load(file)
+            return json_data['dropbox-token']
+    except Exception as e:
+        print(f"Не установлен токен, {e}")
 
 
 def get_proj_dir():
@@ -55,12 +66,7 @@ def get_downloads_dir():
     return os.path.join(get_proj_dir(), 'Downloads')
 
 
-def get_yandex_drive_access_token():
-    with open(os.path.join(get_proj_dir(), 'secrets', 'tokens.json')) as token:
-        return json.load(token)["yandex_disk_token"]
-
-
-def size_limit_exceeded(path, threshold_size=10000):
+def size_limit_exceeded(path, threshold_size=10 * 1024 * 1024):
     size = get_size(path)
     return size > threshold_size
 
