@@ -14,7 +14,7 @@ class YandexDriveClient(Client):
                                 'Accept': 'application/json',
                                 'Authorization': f'OAuth {self.access_token}'}
 
-    @service.operation_status("Загрузка файла")
+    @service.operation_status("Uploading a file")
     def upload_file(self, file_path, savefile=None):
         if savefile is None:
             savefile = os.path.basename(file_path)
@@ -33,14 +33,14 @@ class YandexDriveClient(Client):
             except Exception as e:
                 print(res, e)
 
-    @service.operation_status("Скачивание файла")
+    @service.operation_status("Donwloading a file")
     def download_file(self, save_path, path=service.get_downloads_dir()):
         get_name_request = requests.get(
             f'https://cloud-api.yandex.net/v1/disk/resources?path={save_path}&fields=name,type,_embedded',
             headers=self.default_headers).json()
 
-        path_to_save = f'{path}/{get_name_request["name"]}'
-        print(path_to_save)
+        path_to_save = os.path.join(path, get_name_request["name"])
+        print(f"File {path_to_save} downloaded")
         resource_type = get_name_request["type"]
         if resource_type == 'dir':
             if not os.path.exists(path_to_save):
@@ -60,11 +60,11 @@ class YandexDriveClient(Client):
                 f.write(response_json.content)
         return path
 
-    @service.operation_status("Скачивание папки")
+    @service.operation_status("Downloading a folder")
     def download_folder(self, folder_path, download_path=service.get_downloads_dir()):
         return self.download_file(folder_path, download_path)
 
-    @service.operation_status("Создание папки")
+    @service.operation_status("Creating a folder")
     def create_folder(self, folder_path):
         try:
             response = requests.put(f'{self.URL}?path={folder_path}', headers=self.default_headers)
@@ -77,7 +77,7 @@ class YandexDriveClient(Client):
         except:
             print(f"Папка {folder_path} уже создана")
 
-    @service.operation_status("Загрузка папки")
+    @service.operation_status("Uploading a folder")
     def upload_folder(self, folder_path, destination_path=None):
         if service.size_limit_exceeded(folder_path):
             folder_path = service.archive(folder_path)
@@ -89,13 +89,13 @@ class YandexDriveClient(Client):
             self.create_folder(destination_path)
         for item in items:
             new_destination = item if destination_path is None else f"{destination_path}/{item}"
-            item_path = f'{folder_path}/{item}'
+            item_path = os.path.join(folder_path, item)
             if os.path.isfile(item_path):
                 self.upload_file(item_path, new_destination)
             elif os.path.isdir(item_path):
                 self.upload_folder(item_path, new_destination)
 
-    @service.operation_status("Получение листинга папок и файлов")
+    @service.operation_status("Getting folders and files")
     def get_list_files_and_folders(self, path='/'):
         url = "https://cloud-api.yandex.net/v1/disk/resources"
         headers = {

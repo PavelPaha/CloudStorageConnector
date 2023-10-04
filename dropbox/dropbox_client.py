@@ -25,7 +25,7 @@ class DropboxClient(Client):
             "Content-Type": "application/json"
         }
 
-    @service.operation_status("Загрузка файла")
+    @service.operation_status("Uploading a file")
     def upload_file(self, file_path, upload_path='/'):
         if service.size_limit_exceeded(file_path):
             file_path = service.archive(file_path)
@@ -56,7 +56,7 @@ class DropboxClient(Client):
         except Exception as e:
             raise Exception(f"Произошла ошибка загрузки файла на Dropbox (upload_path = {upload_path}): {e}")
 
-    @service.operation_status("Скачивание файла")
+    @service.operation_status("Donwloading a file")
     def download_file(self, save_path, path=service.get_downloads_dir()):
         # if not save_path.startswith('/'):
         #     save_path = f'/{save_path}'
@@ -73,7 +73,8 @@ class DropboxClient(Client):
             response = requests.post(self.download_file_url,
                                      headers=headers)
             response.raise_for_status()
-            path = f"{path}/{os.path.basename(save_path)}"
+
+            path = os.path.join(path, os.path.basename(save_path))
 
             with open(path, 'wb') as file:
                 file.write(response.content)
@@ -81,10 +82,8 @@ class DropboxClient(Client):
         except Exception as e:
             raise Exception(f"Произошла ошибка загрузки файла на Dropbox (upload_path = {save_path}): {e}")
 
-    @service.operation_status("Скачивание папки")
+    @service.operation_status("Downloading a folder")
     def download_folder(self, folder_path, download_path=None):
-        # if not folder_path.startswith('/'):
-        #     folder_path = f'/{folder_path}'
         if download_path is None:
             download_path = os.path.join(service.get_downloads_dir(), f'{os.path.basename(folder_path)}.zip')
         else:
@@ -105,7 +104,7 @@ class DropboxClient(Client):
                     file.write(chunk)
         return download_path
 
-    @service.operation_status("Создание папки")
+    @service.operation_status("Creating a folder")
     def create_folder(self, folder_path):
         data = {
             "autorename": False,
@@ -119,7 +118,7 @@ class DropboxClient(Client):
         except Exception as e:
             raise Exception(f"Произошла ошибка создания папки (path = {folder_path}): {e}")
 
-    @service.operation_status("Загрузка папки")
+    @service.operation_status("Uploading a folder")
     def upload_folder(self, folder_path, destination_path):
         if service.size_limit_exceeded(folder_path):
             folder_path = service.archive(folder_path)
@@ -129,7 +128,7 @@ class DropboxClient(Client):
         #     destination_path = f'/{destination_path}'
 
         for file_name in os.listdir(folder_path):
-            current_path = f'{folder_path}/{file_name}'
+            current_path = os.path.join(folder_path, file_name)
             if os.path.isfile(current_path):
                 self.upload_file(current_path, f'{destination_path}/{file_name}')
             else:
@@ -137,7 +136,7 @@ class DropboxClient(Client):
 
         print(f"Папка {folder_path} успешно загружена на диск (путь на диске - {destination_path})")
 
-    @service.operation_status("Получение листинга папок и файлов")
+    @service.operation_status("Getting folders and files")
     def get_list_files_and_folders(self, path=""):
         url = "https://api.dropboxapi.com/2/files/list_folder"
         headers = {

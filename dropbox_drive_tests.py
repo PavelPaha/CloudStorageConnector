@@ -20,14 +20,16 @@ class DropboxDrive(unittest.TestCase):
         p = os.path.dirname(os.getcwd())
         os.chdir(p)
         client = DropboxClient(service.get_dropbox_access_token())
-        client.upload_file(f'{service.get_proj_dir()}/{file_path}', upload_path)
+        path = os.path.join(service.get_proj_dir(), file_path)
+        client.upload_file(path, upload_path)
 
     @service.take_action
     def upload_folder(self, file_path, upload_path):
         p = os.path.dirname(os.getcwd())
         os.chdir(p)
         client = DropboxClient(service.get_dropbox_access_token())
-        client.upload_folder(f'{service.get_proj_dir()}/{file_path}', upload_path)
+        path = os.path.join(service.get_proj_dir(), file_path)
+        client.upload_folder(path, upload_path)
 
     def test_images_downloading(self):
         self.download('/images/i.jpg')
@@ -36,10 +38,12 @@ class DropboxDrive(unittest.TestCase):
         self.download('/1.5.pdf')
 
     def test_image_uploading(self):
-        self.upload_file('testDirectory/images/i.jpg', '/i.jpg')
+        path = os.path.join('testDirectory', 'images', 'i.jpg')
+        self.upload_file(path, '/i.jpg')
 
     def test_pdf_uploading(self):
-        self.upload_file('testDirectory/pdf/someDoc.pdf', '/someDoc.pdf')
+        path = os.path.join('testDirectory', 'pdf', 'someDoc.pdf')
+        self.upload_file(path, '/someDoc.pdf')
 
     def test_folder_downloading(self):
         client = DropboxClient(service.get_dropbox_access_token())
@@ -51,5 +55,5 @@ class DropboxDrive(unittest.TestCase):
     @staticmethod
     def test_get_list_folder():
         client = DropboxClient(service.get_dropbox_access_token())
-        list = client.get_list_files_and_folders()
-        print(list)
+        data = client.get_list_files_and_folders()
+        print(data)
