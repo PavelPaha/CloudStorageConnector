@@ -42,7 +42,7 @@ def get_dropbox_access_token():
     p = os.path.join(get_proj_dir(), 'secrets', 'tokens.json')
     with open(p) as file:
         json_data = json.load(file)
-        return json_data['dropbox_token']
+        return json_data['dropbox-token']
 
 
 def get_proj_dir():
@@ -57,7 +57,7 @@ def get_downloads_dir():
 
 def get_yandex_drive_access_token():
     with open(os.path.join(get_proj_dir(), 'secrets', 'tokens.json')) as token:
-        return json.load(token)["yandex_disk_token"]
+        return json.load(token)["yandex-disk-token"]
 
 
 def size_limit_exceeded(path, threshold_size=10000):
