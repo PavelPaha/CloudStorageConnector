@@ -40,6 +40,7 @@ elif args.storage == "dropbox":
 else:
     print("Invalid storage selected!")
     exit(1)
+print(client.__class__.__name__)
 
 if args.upload_file:
     client.upload_file(args.upload_file)

@@ -187,12 +187,13 @@ class DropboxClient(Client):
             res = r.json()
             session_id = res['session_id']
 
+        data_size = os.path.getsize(file_path)
         with open(file_path, 'rb') as f:
             f.seek(offset)
             data = f.read(1024 * 1024)
             while data:
-                print(f'session_id = {session_id}, offset = {offset}')
-
+                # print(f'session_id = {session_id}, offset = {offset}')
+                print(f'Загружено {int(100*offset/data_size)}%')
                 url = 'https://content.dropboxapi.com/2/files/upload_session/append_v2'
                 headers['Dropbox-API-Arg'] = '{"cursor": {"session_id": "' + session_id + \
                                              '", "offset": ' + str(offset) + '}, "close": false}'
