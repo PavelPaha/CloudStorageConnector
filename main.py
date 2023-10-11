@@ -40,7 +40,7 @@ parser.add_argument("--storage", type=str, default="yandex-disk", help="Choose s
 parser.add_argument("--token", type=str, help="Access token for the storage.")
 
 parser.add_argument("--upload-file", type=str, help="Upload file to the storage.")
-parser.add_argument("--download-file", type=str, help="Download file from the storage.")
+parser.add_argument("--download-file", type=str, help="Download file from the storage. Start the file path with /")
 parser.add_argument("--create-folder", type=str, help="Create folder on the storage.")
 parser.add_argument("--upload-folder", type=str, help="Upload folder to the storage.")
 parser.add_argument("--download-folder", type=str, help="Download folder from the storage.")
