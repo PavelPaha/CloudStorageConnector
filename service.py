@@ -3,6 +3,10 @@ import os.path
 import shutil
 import tarfile
 
+import ping3
+
+THRESHOLD_SIZE = 10 * 1024 * 1024
+
 
 def clear_downloads():
     downloads_dir = get_downloads_dir()
@@ -14,10 +18,11 @@ def take_action(func):
     # clear_downloads()
 
     def wrapper(*args):
-        try:
-            func(*args)
-        except Exception as e:
-            print(f"Произошла ошибка: {e}")
+        func(*args)
+        # try:
+        #
+        # except Exception as e:
+        #     print(f"Произошла ошибка: {e}")
 
     return wrapper
 
@@ -42,7 +47,11 @@ def get_dropbox_access_token():
     p = os.path.join(get_proj_dir(), 'secrets', 'tokens.json')
     with open(p) as file:
         json_data = json.load(file)
-        return json_data['dropbox-token']
+        key = 'dropbox-token'
+        if key not in json_data:
+            raise KeyError(
+                "You have not installed a token for Dropbox or the current token is invalid. Use --save-tokens --yandex-disk-token <yandex-disk-token> --dropbox-token <dropbox_token>")
+        return json_data[key]
 
 
 def get_proj_dir():
@@ -56,13 +65,19 @@ def get_downloads_dir():
 
 
 def get_yandex_drive_access_token():
-    with open(os.path.join(get_proj_dir(), 'secrets', 'tokens.json')) as token:
-        return json.load(token)["yandex-disk-token"]
+    with open(os.path.join(get_proj_dir(), 'secrets', 'tokens.json'), 'r') as token:
+        json_data = json.load(token)
+        key = "yandex-disk-token"
+        if key not in json_data:
+            raise KeyError(
+                "You have not installed a token for Yandex drive or the current token is invalid. Use --save-tokens --yandex-disk-token <yandex-disk-token> --dropbox-token <dropbox_token>")
+        return json_data[key]
 
 
-def size_limit_exceeded(path, threshold_size=10000):
+def size_limit_exceeded(path):
+    global THRESHOLD_SIZE
     size = get_size(path)
-    return size > threshold_size
+    return size > THRESHOLD_SIZE
 
 
 def is_archive(path):
@@ -94,3 +109,10 @@ def get_size(path):
 def archive_directory(directory_path, archive_path):
     with tarfile.open(archive_path, "w:gz") as tar:
         tar.add(directory_path, arcname=os.path.basename(directory_path))
+
+
+def get_ping_delay():
+    dropbox_api_server = 'api.dropboxapi.com'
+
+    delay = ping3.ping(dropbox_api_server)
+    return delay

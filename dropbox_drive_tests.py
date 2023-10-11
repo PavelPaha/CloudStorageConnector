@@ -9,24 +9,24 @@ class DropboxDrive(unittest.TestCase):
 
     @service.take_action
     def download(self, download_path):
-        p = os.path.dirname(os.getcwd())
-        os.chdir(p)
+        # p = os.path.dirname(os.getcwd())
+        # os.chdir(p)
         client = DropboxClient(service.get_dropbox_access_token())
         path = client.download_file(download_path)
         self.assertEqual(os.path.exists(path), True)
 
     @service.take_action
     def upload_file(self, file_path, upload_path):
-        p = os.path.dirname(os.getcwd())
-        os.chdir(p)
+        # p = os.path.dirname(os.getcwd())
+        # os.chdir(p)
         client = DropboxClient(service.get_dropbox_access_token())
         path = os.path.join(service.get_proj_dir(), file_path)
         client.upload_file(path, upload_path)
 
     @service.take_action
     def upload_folder(self, file_path, upload_path):
-        p = os.path.dirname(os.getcwd())
-        os.chdir(p)
+        # p = os.path.dirname(os.getcwd())
+        # os.chdir(p)
         client = DropboxClient(service.get_dropbox_access_token())
         path = os.path.join(service.get_proj_dir(), file_path)
         client.upload_folder(path, upload_path)
@@ -50,10 +50,12 @@ class DropboxDrive(unittest.TestCase):
         client.download_folder('/images')
 
     def test_folder_uploading(self):
-        self.upload_folder('testDirectory', '/')
+        self.upload_folder('testDirectory/audio', '/suka')
 
-    @staticmethod
-    def test_get_list_folder():
+    def test(self):
+        self.upload_file('video1.mp4', '/')
+
+    def test_get_list_folder(self):
         client = DropboxClient(service.get_dropbox_access_token())
         data = client.get_list_files_and_folders()
         print(data)

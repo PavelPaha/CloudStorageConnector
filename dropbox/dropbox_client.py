@@ -1,6 +1,6 @@
 import json
+import math
 import os
-import time
 
 import requests
 
@@ -26,18 +26,19 @@ class DropboxClient(Client):
         }
 
     @service.operation_status("Uploading a file")
-    def upload_file(self, file_path, upload_path='/'):
+    def upload_file(self, file_path: object, upload_path='/'):
         if service.size_limit_exceeded(file_path):
             file_path = service.archive(file_path)
-            self.upload_large_file(file_path, upload_path)
+            self.upload_file_in_portions(file_path, upload_path)
             return
+        # self.upload_file_in_portions(file_path, upload_path)
 
         with open(file_path, "rb") as file:
             file_content = file.read()
 
         api_args = {
             "autorename": True,
-            "path": upload_path,
+            "path": f'{upload_path}/{os.path.basename(file_path)}'.replace('//', '/'),
             "mode": "add",
             "mute": False,
             "strict_conflict": False
@@ -121,11 +122,12 @@ class DropboxClient(Client):
     @service.operation_status("Uploading a folder")
     def upload_folder(self, folder_path, destination_path):
         if service.size_limit_exceeded(folder_path):
+            print(f"Size limit exceeded. Max size is {service.THRESHOLD_SIZE}")
             folder_path = service.archive(folder_path)
-            self.upload_file(folder_path, destination_path)
+            self.upload_file_in_portions(folder_path, destination_path)
             return
-        # if not destination_path.startswith('/'):
-        #     destination_path = f'/{destination_path}'
+        # # if not destination_path.startswith('/'):
+        # #     destination_path = f'/{destination_path}'
 
         for file_name in os.listdir(folder_path):
             current_path = os.path.join(folder_path, file_name)
@@ -165,7 +167,7 @@ class DropboxClient(Client):
             items += [f'Name: {entry["name"]}, path: {entry["path_lower"]}']
         return '\n'.join(items)
 
-    def upload_large_file(self, file_path, upload_path):
+    def upload_file_in_portions(self, file_path, upload_path):
         headers = {
             'Authorization': 'Bearer ' + self.access_token,
             'Content-Type': 'application/octet-stream'
@@ -176,32 +178,42 @@ class DropboxClient(Client):
         try:
             with open(self.session_data_file, 'r') as f:
                 session_data = json.load(f)
-                session_id = session_data['session_id']
-                offset = session_data['offset']
+
+                if file_path in session_data:
+                    session = session_data[file_path]
+                    session_id = session['session_id']
+                    offset = session['offset']
         except FileNotFoundError:
             pass
 
         if not session_id:
             url = 'https://content.dropboxapi.com/2/files/upload_session/start'
-            r = self.upload_with_retry(url, headers, None)
+            r = self.try_upload_with_retry(file_path, url, headers, None)
             res = r.json()
             session_id = res['session_id']
 
         data_size = os.path.getsize(file_path)
         with open(file_path, 'rb') as f:
             f.seek(offset)
-            data = f.read(1024 * 1024)
+            data = f.read(128)
             while data:
-                # print(f'session_id = {session_id}, offset = {offset}')
-                print(f'Загружено {int(100*offset/data_size)}%')
+                ping_delay = service.get_ping_delay()
+                print(f'Ping delay = {ping_delay}')
+
+                print(
+                    f'file_path = {file_path}, session_id = {session_id}, offset = {offset}, data_size = {data_size}. Загружено {int(100 * offset / data_size)}%')
                 url = 'https://content.dropboxapi.com/2/files/upload_session/append_v2'
-                headers['Dropbox-API-Arg'] = '{"cursor": {"session_id": "' + session_id + \
-                                             '", "offset": ' + str(offset) + '}, "close": false}'
-                self.upload_with_retry(url, headers, data)
+                self.set_dropbox_api_arg(offset, headers, session_id)
+                if not self.try_upload_with_retry(file_path, url, headers, data):
+                    self.delete_session_from_cache(file_path)
+
+                    print("Повторная попытка после неудачной отправки фалйа")
+                    self.upload_file_in_portions(file_path, upload_path)
+                    return
+
                 offset += len(data)
-                with open(self.session_data_file, 'w') as restored:
-                    json.dump({'session_id': session_id, 'offset': offset}, restored)
-                data = f.read(1024 * 1024)
+                self.dump_session_info(file_path, offset, session_id)
+                data = f.read(min(max(1, 10 - int(math.sqrt(ping_delay))) * 512 * 1024, data_size - offset))
 
         commit_path = (upload_path + '/' + os.path.basename(file_path)).replace('//', '/')
         url = 'https://content.dropboxapi.com/2/files/upload_session/finish'
@@ -210,15 +222,37 @@ class DropboxClient(Client):
             offset) + '}, "commit": {"path": "' + commit_path + '", "mode": "overwrite"}}'
         r = requests.post(url, headers=headers, data=None)
         r.raise_for_status()
-        os.remove(self.session_data_file)
+        self.delete_session_from_cache(file_path)
 
-    def upload_with_retry(self, url, headers, data, max_retries=3, delay=5):
+    def dump_session_info(self, file_path, offset, session_id):
+        with open(self.session_data_file, 'w') as restored:
+            json.dump({file_path: {'session_id': session_id, 'offset': offset}}, restored)
+
+    def delete_session_from_cache(self, file_path):
+        with open(self.session_data_file, 'r') as restored:
+            a = restored.read()
+            if a is None:
+                a = '{}'
+            data = json.loads(a)
+
+        with open(self.session_data_file, 'w') as restored:
+            if file_path in data:
+                data.pop(file_path)
+                if not data:
+                    restored.write('{}')
+                    return
+            json.dump(data, restored)
+
+    def try_upload_with_retry(self, file_path, url, headers, data, max_retries=3, delay=1):
         for i in range(max_retries):
             try:
                 r = requests.post(url, headers=headers, data=data)
                 r.raise_for_status()
                 return r
+            except requests.exceptions.SSLError as e:
+                return False
             except requests.exceptions.RequestException as e:
+                print(e)
                 if e.response.status_code == 409:
                     error_text_in_json = json.loads(e.response.text)
                     if 'correct_offset' in error_text_in_json['error']:
@@ -226,13 +260,27 @@ class DropboxClient(Client):
 
                         with open(self.session_data_file, 'r') as f:
                             session_data = json.load(f)
-                            session_id = session_data['session_id']
+                            session = session_data[file_path]
+                            session_id = session['session_id']
 
-                        with open(self.session_data_file, 'w') as f:
-                            json.dump({'session_id': session_id, 'offset': correct_offset}, f)
+                        self.dump_session_info(file_path, correct_offset, session_id)
+
+                        try:
+                            new_headers = json.loads(headers['Dropbox-API-Arg'])
+                            new_headers['cursor']['offset'] = correct_offset
+                            self.set_dropbox_api_arg(correct_offset, headers, session_id)
+
+                        except Exception as ex:
+                            print(ex)
+                            return False
+                # cursor offset
 
                 if i < max_retries - 1:
-                    time.sleep(delay)
+                    # time.sleep(delay)
                     continue
                 else:
                     raise
+
+    def set_dropbox_api_arg(self, correct_offset, headers, session_id):
+        headers['Dropbox-API-Arg'] = '{"cursor": {"session_id": "' + session_id + \
+                                     '", "offset": ' + str(correct_offset) + '}, "close": false}'
