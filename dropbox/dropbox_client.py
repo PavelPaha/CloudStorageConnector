@@ -188,6 +188,7 @@ class DropboxClient(Client):
 
         if not session_id:
             url = 'https://content.dropboxapi.com/2/files/upload_session/start'
+            # print("START")
             r = self.try_upload_with_retry(file_path, url, headers, None)
             res = r.json()
             session_id = res['session_id']
@@ -198,12 +199,13 @@ class DropboxClient(Client):
             data = f.read(128)
             while data:
                 ping_delay = service.get_ping_delay()
-                print(f'Ping delay = {ping_delay}')
+                # print(f'Ping delay = {ping_delay}')
 
                 print(
                     f'file_path = {file_path}, session_id = {session_id}, offset = {offset}, data_size = {data_size}. Загружено {int(100 * offset / data_size)}%')
                 url = 'https://content.dropboxapi.com/2/files/upload_session/append_v2'
                 self.set_dropbox_api_arg(offset, headers, session_id)
+                # print("MIDDLE")
                 if not self.try_upload_with_retry(file_path, url, headers, data):
                     self.delete_session_from_cache(file_path)
 
@@ -213,15 +215,18 @@ class DropboxClient(Client):
 
                 offset += len(data)
                 self.dump_session_info(file_path, offset, session_id)
-                data = f.read(min(max(1, 10 - int(math.sqrt(ping_delay))) * 512 * 1024, data_size - offset))
+                data = f.read(min(max(1, 5 - int(math.sqrt(ping_delay))) * 512 * 1024, data_size - offset))
 
         commit_path = (upload_path + '/' + os.path.basename(file_path)).replace('//', '/')
         url = 'https://content.dropboxapi.com/2/files/upload_session/finish'
         headers['Dropbox-API-Arg'] = '{"cursor": {"session_id": "' + session_id + \
                                      '", "offset": ' + str(
             offset) + '}, "commit": {"path": "' + commit_path + '", "mode": "overwrite"}}'
-        r = requests.post(url, headers=headers, data=None)
-        r.raise_for_status()
+
+        # print("FINISH")
+        self.try_upload_with_retry(file_path, url, headers, None)
+        # r = requests.post(url, headers=headers, data=None)
+        # r.raise_for_status()
         self.delete_session_from_cache(file_path)
 
     def dump_session_info(self, file_path, offset, session_id):
@@ -243,10 +248,11 @@ class DropboxClient(Client):
                     return
             json.dump(data, restored)
 
-    def try_upload_with_retry(self, file_path, url, headers, data, max_retries=3, delay=1):
+    def try_upload_with_retry(self, file_path, url, headers, data, max_retries=3):
         for i in range(max_retries):
             try:
                 r = requests.post(url, headers=headers, data=data)
+                # print(r.json())
                 r.raise_for_status()
                 return r
             except requests.exceptions.SSLError as e:
@@ -255,8 +261,14 @@ class DropboxClient(Client):
                 print(e)
                 if e.response.status_code == 409:
                     error_text_in_json = json.loads(e.response.text)
-                    if 'correct_offset' in error_text_in_json['error']:
-                        correct_offset = error_text_in_json['error']['correct_offset']
+                    lookup_fail = 'lookup_failed' in error_text_in_json['error'] and 'correct_offset' in \
+                                  error_text_in_json['error']['lookup_failed']
+                    offset_fail = 'correct_offset' in error_text_in_json['error']
+                    if offset_fail or lookup_fail:
+                        if offset_fail:
+                            correct_offset = error_text_in_json['error']['correct_offset']
+                        else:
+                            correct_offset = error_text_in_json['error']['lookup_failed']['correct_offset']
 
                         with open(self.session_data_file, 'r') as f:
                             session_data = json.load(f)
