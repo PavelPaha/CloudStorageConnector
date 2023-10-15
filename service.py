@@ -5,7 +5,7 @@ import tarfile
 
 import ping3
 
-THRESHOLD_SIZE = 3 * 1024 * 1024
+THRESHOLD_SIZE = 2 * 1024 * 1024
 
 
 def clear_downloads():

@@ -32,6 +32,17 @@ class YandexDriveTest(unittest.TestCase):
     def test_dir_downloading(self):
         self.download("testDirectory")
 
+    def test_partially_downloading(self):
+        access_token = service.get_yandex_drive_access_token()
+        client = YandexDriveClient(access_token)
+        path = client.download_file('a.mp3', partially=True)
+        self.assertEqual(os.path.exists(path), True)
+
+    def test_partially_uploading(self):
+        access_token = service.get_yandex_drive_access_token()
+        client = YandexDriveClient(access_token)
+        client.upload_file_partially('testDirectory/audio/a.mp3')
+
     def test_dir_uploading(self):
         path = os.path.join('testDirectory', 'audio')
         self.upload(path, "audio")

@@ -1,5 +1,4 @@
 import json
-import math
 import os
 
 import requests
@@ -198,7 +197,7 @@ class DropboxClient(Client):
             f.seek(offset)
             data = f.read(128)
             while data:
-                ping_delay = service.get_ping_delay()
+                # ping_delay = service.get_ping_delay()
                 # print(f'Ping delay = {ping_delay}')
 
                 print(
@@ -215,7 +214,7 @@ class DropboxClient(Client):
 
                 offset += len(data)
                 self.dump_session_info(file_path, offset, session_id)
-                data = f.read(min(max(1, 5 - int(math.sqrt(ping_delay))) * 512 * 1024, data_size - offset))
+                data = f.read(min(3 * 512 * 1024, data_size - offset))
 
         commit_path = (upload_path + '/' + os.path.basename(file_path)).replace('//', '/')
         url = 'https://content.dropboxapi.com/2/files/upload_session/finish'
